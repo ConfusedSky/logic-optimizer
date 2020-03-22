@@ -1,6 +1,8 @@
 #![deny(clippy::all)]
 #![deny(clippy::cargo)]
 
+pub mod components;
+
 #[cfg(test)]
 mod tests {
     #[test]
