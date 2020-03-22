@@ -1,0 +1,16 @@
+[package]
+name = "logic-optimizer"
+description = "Library that optimizes gate level logic"
+version = "0.0.1"
+authors = ["Masa Maeda <masamaedae@gmail.com>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/ConfusedSky/logic-optimizer"
+keywords = ["logic", "optimization"]
+categories = ["mathematics", "simulation", "algorithms"]
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
