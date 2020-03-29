@@ -119,3 +119,102 @@ impl Circuit {
         self.graph.edges_directed(index, Outgoing).count()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn not_validation_works() {
+        // Create a new circuit that negates an input
+        let mut circuit = Circuit::new();
+        let input = circuit.add_component("A", ComponentKind::Input);
+        let output = circuit.add_component("B", ComponentKind::Output);
+        let not = circuit.add_component("NOT_1", ComponentKind::Not);
+        // Order matters here
+        circuit.add_connection(&input, &not);
+        circuit.add_connection(&not, &output);
+        // Make sure that the circuit is in a valid state
+        circuit.validate().unwrap();
+    }
+
+    #[test]
+    fn not_extra_input_fails() {
+        let mut circuit = Circuit::new();
+        let input = circuit.add_component("A", ComponentKind::Input);
+        let input2 = circuit.add_component("A", ComponentKind::Input);
+        let output = circuit.add_component("B", ComponentKind::Output);
+        let not = circuit.add_component("NOT_1", ComponentKind::Not);
+
+        circuit.add_connection(&input, &not);
+        circuit.add_connection(&input2, &not);
+        circuit.add_connection(&not, &output);
+
+        circuit
+            .validate()
+            .expect_err("Error expected when multiple inputs are attatched to a not");
+    }
+
+    #[test]
+    fn not_extra_output_fails() {
+        let mut circuit = Circuit::new();
+        let input = circuit.add_component("A", ComponentKind::Input);
+        let output2 = circuit.add_component("B", ComponentKind::Output);
+        let output = circuit.add_component("B", ComponentKind::Output);
+        let not = circuit.add_component("NOT_1", ComponentKind::Not);
+
+        circuit.add_connection(&input, &not);
+        circuit.add_connection(&not, &output);
+        circuit.add_connection(&not, &output2);
+
+        circuit
+            .validate()
+            .expect_err("Error expected when multiple outputs are attatched to a not");
+    }
+
+    #[test]
+    fn reports_multiple_errors() {
+        let mut circuit = Circuit::new();
+        let input = circuit.add_component("A", ComponentKind::Input);
+        let input2 = circuit.add_component("A", ComponentKind::Input);
+        let output2 = circuit.add_component("B", ComponentKind::Output);
+        let output = circuit.add_component("B", ComponentKind::Output);
+        let not = circuit.add_component("NOT_1", ComponentKind::Not);
+
+        circuit.add_connection(&input, &not);
+        circuit.add_connection(&input2, &not);
+        circuit.add_connection(&not, &output);
+        circuit.add_connection(&not, &output2);
+
+        let errors = circuit
+            .validate()
+            .expect_err("Error expected when multiple outputs are attatched to a not");
+        assert_eq!(errors.len(), 2);
+    }
+
+    #[test]
+    fn validate_input_inputs() {
+        let mut circuit = Circuit::new();
+        let input = circuit.add_component("A", ComponentKind::Input);
+        let input2 = circuit.add_component("B", ComponentKind::Input);
+
+        circuit.add_connection(&input, &input2);
+
+        circuit
+            .validate()
+            .expect_err("Error expected when an input node has an input");
+    }
+
+    #[test]
+    fn validate_output_outputs() {
+        let mut circuit = Circuit::new();
+        let output = circuit.add_component("A", ComponentKind::Output);
+        let output2 = circuit.add_component("B", ComponentKind::Output);
+
+        circuit.add_connection(&output, &output2);
+
+        circuit
+            .validate()
+            .expect_err("Error expected when an output node has an output");
+    }
+}
