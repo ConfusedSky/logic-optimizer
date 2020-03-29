@@ -74,6 +74,7 @@ impl Circuit {
         }
     }
 
+    /// Adds a component to the circuit
     pub fn add_component<S: Into<String>>(&mut self, name: S, kind: ComponentKind) -> Component {
         let index = self.graph.add_node(ComponentData {
             kind,
@@ -83,10 +84,12 @@ impl Circuit {
         Component { index }
     }
 
+    /// Adds a connection between two components in the circuit
     pub fn add_connection(&mut self, from: &Component, to: &Component) {
         self.graph.add_edge(from.index, to.index, ());
     }
 
+    /// Validates the circuit
     pub fn validate(&self) -> Result<(), Vec<ValidationError>> {
         use petgraph::visit::IntoNodeReferences;
         use std::collections::HashSet;
