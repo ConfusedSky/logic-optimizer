@@ -48,7 +48,7 @@ pub struct Circuit {
 }
 
 /// Types of error that may be returned from a failed validation
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum ValidationErrorKind {
     IncorrectInputs,
     IncorrectOutputs,
@@ -148,6 +148,29 @@ impl Circuit {
 mod tests {
     use super::*;
 
+    fn find_error_in_errors(
+        errors: &Vec<ValidationError>,
+        kind: ValidationErrorKind,
+    ) -> (usize, &ValidationError) {
+        errors
+            .iter()
+            .enumerate()
+            .find(|x| x.1.kind == kind)
+            .unwrap()
+    }
+
+    /// Validates that there are exactly as many errors of each kind as expected
+    fn validate_errors(mut errors: Vec<ValidationError>, expected: &[ValidationErrorKind]) {
+        assert_eq!(errors.len(), expected.len());
+
+        for e in expected {
+            let (index, _) = find_error_in_errors(&errors, *e);
+            errors.remove(index);
+        }
+
+        assert_eq!(errors.len(), 0);
+    }
+
     #[test]
     fn not_validation_works() {
         // Create a new circuit that negates an input
@@ -174,9 +197,12 @@ mod tests {
         circuit.add_connection(&input2, &not);
         circuit.add_connection(&not, &output);
 
-        circuit
+        let errors = circuit
             .validate()
             .expect_err("Error expected when multiple inputs are attatched to a not");
+
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].kind, ValidationErrorKind::IncorrectInputs);
     }
 
     #[test]
@@ -191,9 +217,12 @@ mod tests {
         circuit.add_connection(&not, &output);
         circuit.add_connection(&not, &output2);
 
-        circuit
+        let errors = circuit
             .validate()
             .expect_err("Error expected when multiple outputs are attatched to a not");
+
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].kind, ValidationErrorKind::IncorrectOutputs);
     }
 
     #[test]
@@ -213,7 +242,14 @@ mod tests {
         let errors = circuit
             .validate()
             .expect_err("Error expected when multiple outputs are attatched to a not");
-        assert_eq!(errors.len(), 2);
+
+        validate_errors(
+            errors,
+            &[
+                ValidationErrorKind::IncorrectInputs,
+                ValidationErrorKind::IncorrectOutputs,
+            ],
+        );
     }
 
     #[test]
