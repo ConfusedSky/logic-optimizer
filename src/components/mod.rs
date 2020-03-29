@@ -201,8 +201,7 @@ mod tests {
             .validate()
             .expect_err("Error expected when multiple inputs are attatched to a not");
 
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].kind, ValidationErrorKind::IncorrectInputs);
+        validate_errors(errors, &[ValidationErrorKind::IncorrectInputs]);
     }
 
     #[test]
@@ -221,8 +220,7 @@ mod tests {
             .validate()
             .expect_err("Error expected when multiple outputs are attatched to a not");
 
-        assert_eq!(errors.len(), 1);
-        assert_eq!(errors[0].kind, ValidationErrorKind::IncorrectOutputs);
+        validate_errors(errors, &[ValidationErrorKind::IncorrectOutputs]);
     }
 
     #[test]
@@ -260,9 +258,10 @@ mod tests {
 
         circuit.add_connection(&input, &input2);
 
-        circuit
+        let errors = circuit
             .validate()
             .expect_err("Error expected when an input node has an input");
+        validate_errors(errors, &[ValidationErrorKind::IncorrectInputs]);
     }
 
     #[test]
@@ -273,8 +272,10 @@ mod tests {
 
         circuit.add_connection(&output, &output2);
 
-        circuit
+        let errors = circuit
             .validate()
             .expect_err("Error expected when an output node has an output");
+
+        validate_errors(errors, &[ValidationErrorKind::IncorrectOutputs]);
     }
 }
