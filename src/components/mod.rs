@@ -114,6 +114,13 @@ impl Circuit {
                     }
                 }
                 ComponentKind::Output => {
+                    // Output nodes should only have one input
+                    if self.count_inputs(index) > 1 {
+                        errors.push(ValidationError::new(
+                            ValidationErrorKind::IncorrectInputs,
+                            data.clone(),
+                        ))
+                    }
                     // Output nodes expect that they don't have any outputs
                     if self.count_outputs(index) > 0 {
                         errors.push(ValidationError::new(
@@ -168,19 +175,20 @@ mod tests {
             .iter()
             .enumerate()
             .find(|x| x.1.kind == kind)
-            .unwrap()
+            .expect(format!("Didn't find error of kind: {:?}", kind).as_str())
     }
 
     /// Validates that there are exactly as many errors of each kind as expected
     fn validate_errors(mut errors: Vec<ValidationError>, expected: &[ValidationErrorKind]) {
-        assert_eq!(errors.len(), expected.len());
+        // Display all errors if they are not equal
+        assert_eq!(errors.len(), expected.len(), "{:#?}", errors);
 
         for e in expected {
             let (index, _) = find_error_in_errors(&errors, *e);
             errors.remove(index);
         }
 
-        assert_eq!(errors.len(), 0);
+        assert_eq!(errors.len(), 0, "{:#?}", errors);
     }
 
     #[test]
@@ -289,6 +297,23 @@ mod tests {
             .expect_err("Error expected when an output node has an output");
 
         validate_errors(errors, &[ValidationErrorKind::IncorrectOutputs]);
+    }
+
+    #[test]
+    fn valid_output_single_input() {
+        let mut circuit = Circuit::new();
+        let input = circuit.add_component("A", ComponentKind::Input);
+        let input2 = circuit.add_component("A2", ComponentKind::Input);
+        let output = circuit.add_component("B", ComponentKind::Output);
+
+        circuit.add_connection(&input, &output);
+        circuit.add_connection(&input2, &output);
+
+        let errors = circuit
+            .validate()
+            .expect_err("Error expected when output node has mutliple inputs");
+
+        validate_errors(errors, &[ValidationErrorKind::IncorrectInputs]);
     }
 
     #[test]
