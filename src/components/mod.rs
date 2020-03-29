@@ -49,9 +49,21 @@ pub struct Circuit {
 
 /// Types of error that may be returned from a failed validation
 #[derive(Debug)]
-pub enum ValidationError {
-    IncorrectInputs(ComponentData),
-    IncorrectOutputs(ComponentData),
+pub enum ValidationErrorKind {
+    IncorrectInputs,
+    IncorrectOutputs,
+}
+
+#[derive(Debug)]
+pub struct ValidationError {
+    component: ComponentData,
+    kind: ValidationErrorKind,
+}
+
+impl ValidationError {
+    pub fn new(kind: ValidationErrorKind, component: ComponentData) -> Self {
+        Self { kind, component }
+    }
 }
 
 impl Circuit {
@@ -83,23 +95,35 @@ impl Circuit {
                 ComponentKind::Input => {
                     // Input nodes expect that they don't have an inputs
                     if self.count_inputs(index) > 0 {
-                        errors.push(ValidationError::IncorrectInputs(data.clone()));
+                        errors.push(ValidationError::new(
+                            ValidationErrorKind::IncorrectInputs,
+                            data.clone(),
+                        ));
                     }
                 }
                 ComponentKind::Output => {
                     // Output nodes expect that they don't have any outputs
                     if self.count_outputs(index) > 0 {
-                        errors.push(ValidationError::IncorrectOutputs(data.clone()));
+                        errors.push(ValidationError::new(
+                            ValidationErrorKind::IncorrectOutputs,
+                            data.clone(),
+                        ));
                     }
                 }
                 ComponentKind::Not => {
                     // Nots should have exactly one input and exactly one output
                     // subject to change
                     if self.count_inputs(index) != 1 {
-                        errors.push(ValidationError::IncorrectInputs(data.clone()));
+                        errors.push(ValidationError::new(
+                            ValidationErrorKind::IncorrectInputs,
+                            data.clone(),
+                        ));
                     }
                     if self.count_outputs(index) != 1 {
-                        errors.push(ValidationError::IncorrectOutputs(data.clone()));
+                        errors.push(ValidationError::new(
+                            ValidationErrorKind::IncorrectOutputs,
+                            data.clone(),
+                        ));
                     }
                 }
             };
