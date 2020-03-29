@@ -52,6 +52,7 @@ pub struct Circuit {
 pub enum ValidationErrorKind {
     IncorrectInputs,
     IncorrectOutputs,
+    DuplicateName,
 }
 
 #[derive(Debug)]
@@ -88,9 +89,20 @@ impl Circuit {
 
     pub fn validate(&self) -> Result<(), Vec<ValidationError>> {
         use petgraph::visit::IntoNodeReferences;
+        use std::collections::HashSet;
+
         let mut errors = Vec::new();
+        let mut unique_names = HashSet::new();
 
         for (index, data) in self.graph.node_references() {
+            // If the name of the currently viewed item is a duplicate push an error
+            if !unique_names.insert(data.name.clone()) {
+                errors.push(ValidationError::new(
+                    ValidationErrorKind::DuplicateName,
+                    data.clone(),
+                ));
+            }
+
             match data.kind {
                 ComponentKind::Input => {
                     // Input nodes expect that they don't have an inputs
@@ -189,8 +201,8 @@ mod tests {
     fn not_extra_input_fails() {
         let mut circuit = Circuit::new();
         let input = circuit.add_component("A", ComponentKind::Input);
-        let input2 = circuit.add_component("A", ComponentKind::Input);
-        let output = circuit.add_component("B", ComponentKind::Output);
+        let input2 = circuit.add_component("B", ComponentKind::Input);
+        let output = circuit.add_component("C", ComponentKind::Output);
         let not = circuit.add_component("NOT_1", ComponentKind::Not);
 
         circuit.add_connection(&input, &not);
@@ -209,7 +221,7 @@ mod tests {
         let mut circuit = Circuit::new();
         let input = circuit.add_component("A", ComponentKind::Input);
         let output2 = circuit.add_component("B", ComponentKind::Output);
-        let output = circuit.add_component("B", ComponentKind::Output);
+        let output = circuit.add_component("C", ComponentKind::Output);
         let not = circuit.add_component("NOT_1", ComponentKind::Not);
 
         circuit.add_connection(&input, &not);
@@ -227,9 +239,9 @@ mod tests {
     fn reports_multiple_errors() {
         let mut circuit = Circuit::new();
         let input = circuit.add_component("A", ComponentKind::Input);
-        let input2 = circuit.add_component("A", ComponentKind::Input);
-        let output2 = circuit.add_component("B", ComponentKind::Output);
-        let output = circuit.add_component("B", ComponentKind::Output);
+        let input2 = circuit.add_component("B", ComponentKind::Input);
+        let output2 = circuit.add_component("C", ComponentKind::Output);
+        let output = circuit.add_component("D", ComponentKind::Output);
         let not = circuit.add_component("NOT_1", ComponentKind::Not);
 
         circuit.add_connection(&input, &not);
@@ -277,5 +289,20 @@ mod tests {
             .expect_err("Error expected when an output node has an output");
 
         validate_errors(errors, &[ValidationErrorKind::IncorrectOutputs]);
+    }
+
+    #[test]
+    fn test_duplicate_name() {
+        let mut circuit = Circuit::new();
+        let input = circuit.add_component("A", ComponentKind::Input);
+        let output = circuit.add_component("A", ComponentKind::Output);
+
+        circuit.add_connection(&input, &output);
+
+        let errors = circuit
+            .validate()
+            .expect_err("Error expected two components have the same name");
+
+        validate_errors(errors, &[ValidationErrorKind::DuplicateName]);
     }
 }
