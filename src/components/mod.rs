@@ -1,4 +1,6 @@
 use petgraph::{graph::NodeIndex, Directed, Graph, Incoming, Outgoing};
+use std::cmp::Ordering;
+use std::convert::TryInto;
 
 /// A single node in a logic graph
 #[derive(Clone, Copy, Debug)]
@@ -9,8 +11,45 @@ pub enum ComponentKind {
     Output,
     /// Takes the output of one node and negates it
     Not,
+    /// Is high if all inputs are high otherwise it's low
+    And,
+    /// Is high if any of inputs are high otherwise it's low
+    Or,
 }
 
+impl ComponentKind {
+    /// The number of inputs required for a given component
+    fn required_inputs(&self) -> (Ordering, isize) {
+        match self {
+            // Can't have any inputs
+            ComponentKind::Input => (Ordering::Equal, 0),
+            // 0 or 1
+            ComponentKind::Output => (Ordering::Less, 2),
+            // Exactly 1
+            ComponentKind::Not => (Ordering::Equal, 1),
+            // 1 or more
+            ComponentKind::And => (Ordering::Greater, 1),
+            // 1 or more
+            ComponentKind::Or => (Ordering::Greater, 1),
+        }
+    }
+
+    /// The number of outputs required for a given component
+    fn required_outputs(&self) -> (Ordering, isize) {
+        match self {
+            // Can have 0 or more outputs
+            ComponentKind::Input => (Ordering::Greater, -1),
+            // Can't have any outputs
+            ComponentKind::Output => (Ordering::Equal, 0),
+            // 1 or more
+            ComponentKind::Not => (Ordering::Equal, 1),
+            // 1 or more
+            ComponentKind::And => (Ordering::Greater, 1),
+            // 1 or more
+            ComponentKind::Or => (Ordering::Greater, 1),
+        }
+    }
+}
 #[derive(Debug, Clone)]
 /// The data that is stored in the circuit tree
 pub struct ComponentData {
@@ -106,49 +145,34 @@ impl Circuit {
                 ));
             }
 
-            match data.kind {
-                ComponentKind::Input => {
-                    // Input nodes expect that they don't have an inputs
-                    if self.count_inputs(index) > 0 {
-                        errors.push(ValidationError::new(
-                            ValidationErrorKind::IncorrectInputs,
-                            data.clone(),
-                        ));
-                    }
-                }
-                ComponentKind::Output => {
-                    // Output nodes should only have one input
-                    if self.count_inputs(index) > 1 {
-                        errors.push(ValidationError::new(
-                            ValidationErrorKind::IncorrectInputs,
-                            data.clone(),
-                        ))
-                    }
-                    // Output nodes expect that they don't have any outputs
-                    if self.count_outputs(index) > 0 {
-                        errors.push(ValidationError::new(
-                            ValidationErrorKind::IncorrectOutputs,
-                            data.clone(),
-                        ));
-                    }
-                }
-                ComponentKind::Not => {
-                    // Nots should have exactly one input and exactly one output
-                    // subject to change
-                    if self.count_inputs(index) != 1 {
-                        errors.push(ValidationError::new(
-                            ValidationErrorKind::IncorrectInputs,
-                            data.clone(),
-                        ));
-                    }
-                    if self.count_outputs(index) != 1 {
-                        errors.push(ValidationError::new(
-                            ValidationErrorKind::IncorrectOutputs,
-                            data.clone(),
-                        ));
-                    }
-                }
+            let inputs: isize = self.count_inputs(index).try_into().unwrap();
+            let outputs: isize = self.count_outputs(index).try_into().unwrap();
+
+            let status = match data.kind.required_inputs() {
+                (Ordering::Equal, x) => inputs == x,
+                (Ordering::Greater, x) => inputs > x,
+                (Ordering::Less, x) => inputs < x,
             };
+
+            if !status {
+                errors.push(ValidationError::new(
+                    ValidationErrorKind::IncorrectInputs,
+                    data.clone(),
+                ))
+            }
+
+            let status = match data.kind.required_outputs() {
+                (Ordering::Equal, x) => outputs == x,
+                (Ordering::Greater, x) => outputs > x,
+                (Ordering::Less, x) => outputs < x,
+            };
+
+            if !status {
+                errors.push(ValidationError::new(
+                    ValidationErrorKind::IncorrectOutputs,
+                    data.clone(),
+                ))
+            }
         }
 
         if errors.len() == 0 {
