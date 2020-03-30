@@ -2,6 +2,13 @@ use petgraph::{graph::NodeIndex, Directed, Graph, Incoming, Outgoing};
 use std::cmp::Ordering;
 use std::convert::TryInto;
 
+/// The direction of a connection
+#[derive(Clone, Copy, Debug)]
+enum ConnectionKind {
+    Input,
+    Output,
+}
+
 /// A single node in a logic graph
 #[derive(Clone, Copy, Debug)]
 pub enum ComponentKind {
@@ -49,7 +56,15 @@ impl ComponentKind {
             ComponentKind::Or => (Ordering::Greater, 1),
         }
     }
+
+    fn required_connections(&self, kind: ConnectionKind) -> (Ordering, isize) {
+        match kind {
+            ConnectionKind::Input => self.required_inputs(),
+            ConnectionKind::Output => self.required_outputs(),
+        }
+    }
 }
+
 #[derive(Debug, Clone)]
 /// The data that is stored in the circuit tree
 pub struct ComponentData {
@@ -145,34 +160,15 @@ impl Circuit {
                 ));
             }
 
-            let inputs: isize = self.count_inputs(index).try_into().unwrap();
-            let outputs: isize = self.count_outputs(index).try_into().unwrap();
+            self.validate_component_connections(index, data.kind, ConnectionKind::Input)
+                .unwrap_or_else(|error| {
+                    errors.push(ValidationError::new(error, data.clone()));
+                });
 
-            let status = match data.kind.required_inputs() {
-                (Ordering::Equal, x) => inputs == x,
-                (Ordering::Greater, x) => inputs > x,
-                (Ordering::Less, x) => inputs < x,
-            };
-
-            if !status {
-                errors.push(ValidationError::new(
-                    ValidationErrorKind::IncorrectInputs,
-                    data.clone(),
-                ))
-            }
-
-            let status = match data.kind.required_outputs() {
-                (Ordering::Equal, x) => outputs == x,
-                (Ordering::Greater, x) => outputs > x,
-                (Ordering::Less, x) => outputs < x,
-            };
-
-            if !status {
-                errors.push(ValidationError::new(
-                    ValidationErrorKind::IncorrectOutputs,
-                    data.clone(),
-                ))
-            }
+            self.validate_component_connections(index, data.kind, ConnectionKind::Output)
+                .unwrap_or_else(|error| {
+                    errors.push(ValidationError::new(error, data.clone()));
+                });
         }
 
         if errors.len() == 0 {
@@ -182,11 +178,35 @@ impl Circuit {
         }
     }
 
-    fn count_inputs(&self, index: NodeIndex) -> usize {
-        self.graph.edges_directed(index, Incoming).count()
+    fn count_connections(&self, index: NodeIndex, kind: ConnectionKind) -> usize {
+        let direction = match kind {
+            ConnectionKind::Input => Incoming,
+            ConnectionKind::Output => Outgoing,
+        };
+        self.graph.edges_directed(index, direction).count()
     }
-    fn count_outputs(&self, index: NodeIndex) -> usize {
-        self.graph.edges_directed(index, Outgoing).count()
+
+    fn validate_component_connections(
+        &self,
+        index: NodeIndex,
+        kind: ComponentKind,
+        direction: ConnectionKind,
+    ) -> Result<(), ValidationErrorKind> {
+        let connections: isize = self.count_connections(index, direction).try_into().unwrap();
+
+        if match kind.required_connections(direction) {
+            (Ordering::Equal, x) => connections == x,
+            (Ordering::Greater, x) => connections > x,
+            (Ordering::Less, x) => connections < x,
+        } {
+            Ok(())
+        } else {
+            let error = match direction {
+                ConnectionKind::Input => ValidationErrorKind::IncorrectInputs,
+                ConnectionKind::Output => ValidationErrorKind::IncorrectOutputs,
+            };
+            Err(error)
+        }
     }
 }
 
