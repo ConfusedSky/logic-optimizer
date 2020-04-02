@@ -4,7 +4,7 @@ use std::convert::TryInto;
 
 /// The direction of a connection
 #[derive(Clone, Copy, Debug)]
-enum ConnectionKind {
+enum ConnectionDirection {
     Input,
     Output,
 }
@@ -57,10 +57,10 @@ impl ComponentKind {
         }
     }
 
-    fn required_connections(&self, kind: ConnectionKind) -> (Ordering, isize) {
-        match kind {
-            ConnectionKind::Input => self.required_inputs(),
-            ConnectionKind::Output => self.required_outputs(),
+    fn required_connections(&self, direction: ConnectionDirection) -> (Ordering, isize) {
+        match direction {
+            ConnectionDirection::Input => self.required_inputs(),
+            ConnectionDirection::Output => self.required_outputs(),
         }
     }
 }
@@ -160,12 +160,12 @@ impl Circuit {
                 ));
             }
 
-            self.validate_component_connections(index, data.kind, ConnectionKind::Input)
+            self.validate_component_connections(index, data.kind, ConnectionDirection::Input)
                 .unwrap_or_else(|error| {
                     errors.push(ValidationError::new(error, data.clone()));
                 });
 
-            self.validate_component_connections(index, data.kind, ConnectionKind::Output)
+            self.validate_component_connections(index, data.kind, ConnectionDirection::Output)
                 .unwrap_or_else(|error| {
                     errors.push(ValidationError::new(error, data.clone()));
                 });
@@ -178,10 +178,10 @@ impl Circuit {
         }
     }
 
-    fn count_connections(&self, index: NodeIndex, kind: ConnectionKind) -> usize {
-        let direction = match kind {
-            ConnectionKind::Input => Incoming,
-            ConnectionKind::Output => Outgoing,
+    fn count_connections(&self, index: NodeIndex, direction: ConnectionDirection) -> usize {
+        let direction = match direction {
+            ConnectionDirection::Input => Incoming,
+            ConnectionDirection::Output => Outgoing,
         };
         self.graph.edges_directed(index, direction).count()
     }
@@ -190,7 +190,7 @@ impl Circuit {
         &self,
         index: NodeIndex,
         kind: ComponentKind,
-        direction: ConnectionKind,
+        direction: ConnectionDirection,
     ) -> Result<(), ValidationErrorKind> {
         let connections: isize = self.count_connections(index, direction).try_into().unwrap();
 
@@ -202,8 +202,8 @@ impl Circuit {
             Ok(())
         } else {
             let error = match direction {
-                ConnectionKind::Input => ValidationErrorKind::IncorrectInputs,
-                ConnectionKind::Output => ValidationErrorKind::IncorrectOutputs,
+                ConnectionDirection::Input => ValidationErrorKind::IncorrectInputs,
+                ConnectionDirection::Output => ValidationErrorKind::IncorrectOutputs,
             };
             Err(error)
         }
