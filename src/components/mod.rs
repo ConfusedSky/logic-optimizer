@@ -2,6 +2,7 @@ use petgraph::graph::NodeIndex;
 use std::cmp::Ordering;
 
 mod circuit;
+pub mod stringify;
 
 use circuit::ConnectionDirection;
 
