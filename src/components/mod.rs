@@ -34,9 +34,9 @@ impl ComponentKind {
             ComponentKind::Output => (Ordering::Less, 2),
             // Exactly 1
             ComponentKind::Not => (Ordering::Equal, 1),
-            // 1 or more
+            // 2 or more
             ComponentKind::And => (Ordering::Greater, 1),
-            // 1 or more
+            // 2 or more
             ComponentKind::Or => (Ordering::Greater, 1),
         }
     }
@@ -51,9 +51,9 @@ impl ComponentKind {
             // 1 or more
             ComponentKind::Not => (Ordering::Equal, 1),
             // 1 or more
-            ComponentKind::And => (Ordering::Greater, 1),
+            ComponentKind::And => (Ordering::Greater, 0),
             // 1 or more
-            ComponentKind::Or => (Ordering::Greater, 1),
+            ComponentKind::Or => (Ordering::Greater, 0),
         }
     }
 
@@ -249,6 +249,38 @@ mod tests {
         circuit.add_connection(&input, &not);
         circuit.add_connection(&not, &output);
         // Make sure that the circuit is in a valid state
+        circuit.validate().unwrap();
+    }
+
+    #[test]
+    fn and_is_constructable() {
+        let mut circuit = Circuit::new();
+
+        let input = circuit.add_component("A", ComponentKind::Input);
+        let input2 = circuit.add_component("B", ComponentKind::Input);
+        let output = circuit.add_component("C", ComponentKind::Output);
+        let and = circuit.add_component("AND_1", ComponentKind::And);
+
+        circuit.add_connection(&input, &and);
+        circuit.add_connection(&input2, &and);
+        circuit.add_connection(&and, &output);
+
+        circuit.validate().unwrap();
+    }
+
+    #[test]
+    fn or_is_constructable() {
+        let mut circuit = Circuit::new();
+
+        let input = circuit.add_component("A", ComponentKind::Input);
+        let input2 = circuit.add_component("B", ComponentKind::Input);
+        let output = circuit.add_component("C", ComponentKind::Output);
+        let or = circuit.add_component("OR_1", ComponentKind::Or);
+
+        circuit.add_connection(&input, &or);
+        circuit.add_connection(&input2, &or);
+        circuit.add_connection(&or, &output);
+
         circuit.validate().unwrap();
     }
 
