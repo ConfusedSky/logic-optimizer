@@ -21,7 +21,7 @@ mod tests {
         circuit.add_connection(&input, &not);
         circuit.add_connection(&not, &output);
 
-        assert_eq!(stringify_circuit(&circuit).unwrap(), String::from("B = A'"));
+        assert_eq!(stringify_circuit(&circuit).unwrap(), String::from("B = !A"));
     }
 
     #[test]
